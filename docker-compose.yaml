@@ -1,0 +1,30 @@
+version: "3.8"
+name: webdevprime
+services:
+ auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - 5000:5000
+    # depends_on:
+    #   - mongodb
+    #   - traefik
+    env_file:
+      - ./services/auth-service/Config/dev.env
+    networks:
+      - services-network
+    develop:
+      watch:
+        - path: ./services/auth-service/package.json
+          action: rebuild
+        - path: ./services/auth-service/package-lock.json
+          action: rebuild
+        - path: ./services/auth-service
+          target: /app
+          action: sync
+
+networks:
+  services-network:
+    driver: bridge

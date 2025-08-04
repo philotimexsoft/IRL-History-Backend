@@ -1,0 +1,41 @@
+# Root node_modules (if any)
+node_modules/
+
+# node_modules inside any service
+**/node_modules/
+# Ignore all .env files inside any folder
+**/*.env
+/services/*.env
+
+.env
+**/.env
+
+# Log files
+*.log
+logs/
+
+# OS & IDE files
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Output / build directories
+dist/
+build/
+**/dist/
+**/build/
+
+# npm / yarn
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+
+# Docker-related
+docker-compose.override.yml
+
+# Ignore test coverage or temp files
+coverage/
+tmp/
+**/*.env
