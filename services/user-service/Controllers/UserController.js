@@ -1,4 +1,5 @@
 const axios = require("axios");
+const bcrypt = require("bcryptjs");
 const User = require("../Models/UserModel");
 const Verification = require("../Models/VerificationModel");
 const CatchAsyncError = require("../Utils/CatchAsyncError");
@@ -6,6 +7,7 @@ const ErrorHandler = require("../Utils/ErrorHandler");
 const CreateJwtToken = require("../Utils/CreateJwtToken");
 const { SendTemplate } = require("mailglide");
 const { sendOtpToEmail } = require("./OtpController");
+const logActivity = require("../Utils/LogActivity");
 const crypto = require("crypto");
 
 /* ---------------- Create User with email & password (withou conitnue with google and discord etc..) ------------------*/
@@ -17,13 +19,13 @@ const CreateUser = CatchAsyncError(async (req, res, next) => {
     );
   }
   const user = await User.create(data);
-
+  await logActivity({ user, type: "register", req });
   CreateJwtToken(user, 201, res);
 });
 
 /* ---------------------------- SOCIAL_LOGIN & REGISTRATION ---------------------------------- */
 const SocialLogin = CatchAsyncError(async (req, res, next) => {
-  const { provider, profile } = req.body;
+  const { provider, profile, youtubeUrl } = req.body;
 
   // console.log("this is the social login");
 
@@ -109,10 +111,7 @@ const SocialLogin = CatchAsyncError(async (req, res, next) => {
             provider === "discord"
               ? `https://discord.com/users/${profile.id}`
               : "",
-          youtube:
-            provider === "google"
-              ? `https://www.youtube.com/@${email.split("@")[0]}`
-              : "",
+          youtube: provider === "google" ? youtubeUrl || "" : "",
         },
       };
 
@@ -126,7 +125,7 @@ const SocialLogin = CatchAsyncError(async (req, res, next) => {
 
 /* --------------------------- LOGIN WITH USERNAME & PASSWORD --------------------------------*/
 const LoginUser = CatchAsyncError(async (req, res, next) => {
- const { email, password } = req.body;
+  const { email, password } = req.body;
 
   if (!email) {
     return next(new ErrorHandler("Please Fill The Field!", 422));
@@ -140,11 +139,18 @@ const LoginUser = CatchAsyncError(async (req, res, next) => {
   }
 
   // Check if the user has password set (social login users won't have it)
-   if (user.oauth.google.id || user.oauth.discord.id) {
+  if (user.oauth.google.id || user.oauth.discord.id) {
+    // Handle 2FA
+    if (user.twoFactorEnabled) {
+      req.body._forceEmail = user.email;
+      return sendOtpToEmail(req, res);
+    }
+
+    await logActivity({ user, type: "login", req });
     return CreateJwtToken(user, 200, res);
   }
 
-   if (!password) {
+  if (!password) {
     return next(new ErrorHandler("Please Fill The Field!", 422));
   }
 
@@ -166,6 +172,44 @@ const LoginUser = CatchAsyncError(async (req, res, next) => {
     return sendOtpToEmail(req, res);
   }
 
+  await logActivity({ user, type: "login", req });
+  // All good — proceed
+  CreateJwtToken(user, 200, res);
+});
+
+/* -------------------------------------- VERIFY BACKUP CODES ------------------------------ */
+const verifyBackupCode = CatchAsyncError(async (req, res, next) => {
+  const { code } = req.body;
+  if (!code) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Backup code is required" });
+  }
+
+  const user = await User.findById(req.user._id);
+  if (!user || !user.security?.backupCodes?.length) {
+    return res
+      .status(400)
+      .json({ success: false, message: "No backup codes available" });
+  }
+
+  const matchIndex = await Promise.all(
+    user.security.backupCodes.map(async (item, index) => {
+      const isMatch = await bcrypt.compare(code, item.code);
+      return isMatch && !item.used ? index : -1;
+    })
+  ).then((results) => results.find((i) => i !== -1));
+
+  if (matchIndex === -1 || matchIndex === undefined) {
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid or used backup code" });
+  }
+
+  user.security.backupCodes[matchIndex].used = true;
+  await user.save();
+
+ await logActivity({ user, type: "login", req });
   // All good — proceed
   CreateJwtToken(user, 200, res);
 });
@@ -214,10 +258,33 @@ const VerifyUser = CatchAsyncError(async (req, res, next) => {
       }
     }
   );
-
+  await logActivity({ user: user_, type: "verify", req });
   res.status(200).json({
     success: true,
     verify: verifyToken,
+  });
+});
+
+/* --------------------------- UPLOAD AVTAR ------------------------------------------------------- */
+const uploadAvatar = CatchAsyncError(async (req, res, next) => {
+  const userId = req.user._id;
+  const { avatarUrl } = req.body;
+
+  if (!avatarUrl) {
+    return next(new ErrorHandler("Please add avatar ulr here", 401));
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { avatar: avatarUrl },
+    { new: true }
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Avatar uploaded successfully",
+    avatar: avatarUrl,
+    user: updatedUser,
   });
 });
 
@@ -232,7 +299,6 @@ const ViewProfile = CatchAsyncError(async (req, res, next) => {
     user,
   });
 });
-
 
 /* --------------------------------- ResetPassword (Update) ------------------------------------------------------ */
 /* for update password, use should know the old password */
@@ -304,7 +370,6 @@ const ForgetPassword = CatchAsyncError(async (req, res, next) => {
   });
 });
 
-
 /* this is the function after use click on the update password link , this functio will check the validity of time etc.. and update the password as new wrote */
 const ResetPassword = CatchAsyncError(async (req, res, next) => {
   let id = req.params.id;
@@ -333,10 +398,12 @@ const ResetPassword = CatchAsyncError(async (req, res, next) => {
 
   user.reset_token = {
     token: "",
-    expired: new Date().now(),
+    expired: new Date(),
   };
 
   await user.save();
+
+  await logActivity({ user, type: "reset_password", req });
 
   res
     .status(200)
@@ -365,6 +432,9 @@ const LogoutUser = CatchAsyncError(async (req, res, next) => {
   // destroy cookie
   res.clearCookie("irlhistory_user");
   await user.save();
+
+  await logActivity({ user, type: "logout", req });
+
   res.status(200).json({
     success: true,
     message: "Logout Succesfully ",
@@ -389,6 +459,7 @@ async function generateUniqueUname(base) {
 module.exports = {
   CreateUser,
   LoginUser,
+  uploadAvatar,
   VerifyUser,
   LogoutUser,
   ViewProfile,
@@ -396,5 +467,6 @@ module.exports = {
   UpdatePassword,
   ForgetPassword,
   ResetPassword,
-  FindUser
+  FindUser,
+  verifyBackupCode,
 };

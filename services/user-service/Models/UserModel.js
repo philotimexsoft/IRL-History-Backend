@@ -113,8 +113,40 @@ const UserStructure = new mongoose.Schema(
     },
     twoFactorSecret: {
       type: String,
-      expiresAt:Date
+      expiresAt: Date,
     },
+    security: {
+      showEmail: {
+        type: Boolean,
+        default: true,
+      },
+      showRealName: {
+        type: Boolean,
+        default: true,
+      },
+      displayNamePref: {
+        type: String,
+        enum: ["username", "realname", "both"],
+        default: "username",
+      },
+      showOnlineStatus: {
+        type: Boolean,
+        default: true,
+      },
+      allowFriendRequests: {
+        type: Boolean,
+        default: true,
+      },
+      backupCodes: [
+        {
+          code: String,
+          used: { type: Boolean, default: false },
+        },
+      ],
+    },
+    lastLogin: { type: Date },
+    lastLoginIP: { type: String },
+    lastLoginUserAgent: { type: String },
     tokens: [
       {
         token: {
@@ -122,14 +154,14 @@ const UserStructure = new mongoose.Schema(
         },
       },
     ],
-      reset_token:{
-        token:{
-            type:String
-        },
-        expired:{
-            type:Date
-        }
-    }
+    reset_token: {
+      token: {
+        type: String,
+      },
+      expired: {
+        type: Date,
+      },
+    },
   },
   { timestamps: true }
 );
@@ -151,7 +183,8 @@ UserStructure.methods.genereteToken = async function () {
     {
       _id: user._id,
     },
-    process.env.SECRET_KEY
+    process.env.SECRET_KEY,
+    { expiresIn: "7d" }
   );
   user.tokens = user.tokens.concat({ token: token });
   await user.save();
@@ -184,14 +217,14 @@ UserStructure.statics.isValidEmail = async function (email) {
 
 // check the old password is valid or not
 UserStructure.methods.isValidOldPassword = async function (oldpassword) {
-    const user = this;
-    const isValid = await bcrypt.compare(oldpassword, user.password);
-    if (! isValid) {
-        throw new ErrorHandler("Old Password Is Not Currect !", 400);
-    }
+  const user = this;
+  const isValid = await bcrypt.compare(oldpassword, user.password);
+  if (!isValid) {
+    throw new ErrorHandler("Old Password Is Not Currect !", 400);
+  }
 
-    return true;
-}
+  return true;
+};
 
 const User = new mongoose.model("User", UserStructure);
 

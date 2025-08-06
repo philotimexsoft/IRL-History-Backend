@@ -1,5 +1,5 @@
 version: "3.8"
-name: webdevprime
+name: irlhistory
 services:
  auth-service:
     build:
@@ -8,9 +8,8 @@ services:
     container_name: auth-service
     ports:
       - 5000:5000
-    # depends_on:
-    #   - mongodb
-    #   - traefik
+    depends_on:
+      - mongodb
     env_file:
       - ./services/auth-service/Config/dev.env
     networks:
@@ -21,9 +20,65 @@ services:
           action: rebuild
         - path: ./services/auth-service/package-lock.json
           action: rebuild
+        - path: ./services/auth-service/Config/dev.env
+          action: rebuild
         - path: ./services/auth-service
           target: /app
           action: sync
+
+ user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - 6000:6000
+    depends_on:
+      - mongodb
+      - redis
+    env_file:
+      - ./services/user-service/Config/dev.env
+    networks:
+      - services-network
+    develop:
+      watch:
+        - path: ./services/user-service/package.json
+          action: rebuild
+        - path: ./services/user-service/package-lock.json
+          action: rebuild
+        - path: ./services/auth-service/Config/dev.env
+          action: rebuild
+        - path: ./services/user-service
+          target: /app
+          action: sync
+
+ mongodb:
+    image: mongo
+    container_name: irlhistorymongo
+    ports:
+      - 27071:27017
+    volumes:
+      - irlhistory-data:/data/db
+    networks:
+      - services-network
+
+ redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - services-network
+
+
+volumes:
+  irlhistory-data:
+    driver: local
+  grafana-data:
+  prometheus-data:
+  redis-data:
 
 networks:
   services-network:
