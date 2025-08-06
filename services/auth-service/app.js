@@ -16,6 +16,10 @@ app.use(passport.initialize());
 // Routes
 app.use('/v1/api/auth-service', AuthRoutes);
 
+app.get("/",(req,res) => {
+    res.json("hello");
+})
+
 module.exports = app;
 
 
