@@ -162,6 +162,18 @@ const UserStructure = new mongoose.Schema(
         type: Date,
       },
     },
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
@@ -224,6 +236,15 @@ UserStructure.methods.isValidOldPassword = async function (oldpassword) {
   }
 
   return true;
+};
+
+// hide the private data
+UserStructure.methods.toJSON = function () {
+  const user = this;
+  let obj = user.toObject();
+  delete obj.tokens;
+  delete obj.security.backupCodes;
+  return obj;
 };
 
 const User = new mongoose.model("User", UserStructure);

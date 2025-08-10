@@ -422,6 +422,38 @@ const FindUser = CatchAsyncError(async (req, res, next) => {
   });
 });
 
+/* -------------------------------------- UPDATE PROFILE ----------------------------------- */
+
+const UpdateProfile = CatchAsyncError(async(req,res,next) => {
+ const { id } = req.params;
+  const data = req.body;
+
+  if (!id) {
+    return next(new ErrorHandler("Please provide the user ID", 400));
+  }
+
+  if (!data || Object.keys(data).length === 0) {
+    return next(new ErrorHandler("No update data provided", 400));
+  }
+
+  // Find and update group
+  const updateUser = await User.findByIdAndUpdate(id, data, {
+    new: true, // return updated document
+    runValidators: false, // validate schema on update
+  });
+
+  if (!updateUser) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "User updated successfully",
+    user: updateUser,
+  });
+
+});
+
 /* -------------------------------------- LOGOUT USER ------------------------------------------------- */
 const LogoutUser = CatchAsyncError(async (req, res, next) => {
   const user = req.user;
@@ -456,6 +488,136 @@ async function generateUniqueUname(base) {
   return uname;
 }
 
+/* ------------------------ FOLLOW USER ----------------- */
+
+const FollowUser = CatchAsyncError(async (req, res, next) => {
+  const targetUserId = req.params.id;
+  const currentUserId = req.user._id;
+
+  if (targetUserId === String(currentUserId)) {
+    return next(new ErrorHandler("You cannot follow yourself", 400));
+  }
+
+  const targetUser = await User.findById(targetUserId);
+  if (!targetUser) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  // Prevent duplicate follow
+  if (targetUser.followers.includes(currentUserId)) {
+    return next(new ErrorHandler("Already following this user", 400));
+  }
+
+  // Add to both user's arrays
+  targetUser.followers.push(currentUserId);
+  await targetUser.save();
+
+  await User.findByIdAndUpdate(currentUserId, {
+    $push: { following: targetUserId }
+  });
+
+  res.json({ success: true, message: `User ${targetUser.uname} followed successfully` });
+});
+
+/* ---------------------------------- Unfollow user --------------------- */
+const UnFollowUser = CatchAsyncError(async (req, res, next) => {
+  const targetUserId = req.params.id;
+  const currentUserId = req.user._id;
+
+  const targetUser = await User.findById(targetUserId);
+  if (!targetUser) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  if (!targetUser.followers.includes(currentUserId)) {
+    return next(new ErrorHandler("You are not following this user", 400));
+  }
+
+  // Remove from both user's arrays
+  targetUser.followers.pull(currentUserId);
+  await targetUser.save();
+
+  await User.findByIdAndUpdate(currentUserId, {
+    $pull: { following: targetUserId }
+  });
+
+  res.json({ success: true, message: `User ${targetUser.uname} unfollowed successfully` });
+});
+
+const GetAllFollowers = CatchAsyncError(async (req, res, next) => {
+  const loggedInUser = req.user;
+  const userId  = req.params.id; // profile being viewed
+
+  if (!loggedInUser) {
+    return next(new ErrorHandler("Please login!", 401));
+  }
+
+  // If viewing own profile, allow
+  if (loggedInUser._id.toString() === userId) {
+    const ownFollowers = await User.findById(userId).populate("followers");
+    return res.status(200).json({
+      success: true,
+      followers: ownFollowers.followers,
+    });
+  }
+
+  // Check if logged-in user follows the target user
+  const isFollowing = await User.exists({
+    _id: loggedInUser._id,
+    following: userId,
+  });
+
+  if (!isFollowing) {
+    return next(
+      new ErrorHandler("You are not allowed to see this user's followers", 403)
+    );
+  }
+
+  const followersList = await User.findById(userId).populate("followers");
+
+  res.status(200).json({
+    success: true,
+    followers: followersList.followers,
+  });
+});
+
+const GetFollowings = CatchAsyncError(async (req, res, next) => {
+  const loggedInUser = req.user;
+  const userId = req.params.id; // profile being viewed
+
+  if (!loggedInUser) {
+    return next(new ErrorHandler("Please login!", 401));
+  }
+
+  // If viewing own profile, allow
+  if (loggedInUser._id.toString() === userId) {
+    const ownFollowings = await User.findById(userId).populate("following");
+    return res.status(200).json({
+      success: true,
+      followings: ownFollowings.following,
+    });
+  }
+
+  // Check if logged-in user follows the target user
+  const isFollowing = await User.exists({
+    _id: loggedInUser._id,
+    following: userId,
+  });
+
+  if (!isFollowing) {
+    return next(
+      new ErrorHandler("You are not allowed to see this user's followings", 403)
+    );
+  }
+
+  const followingsList = await User.findById(userId).populate("following");
+
+  res.status(200).json({
+    success: true,
+    followings: followingsList.following,
+  });
+});
+
 module.exports = {
   CreateUser,
   LoginUser,
@@ -469,4 +631,9 @@ module.exports = {
   ResetPassword,
   FindUser,
   verifyBackupCode,
+  UpdateProfile,
+  FollowUser,
+  UnFollowUser,
+ GetFollowings,
+ GetAllFollowers
 };

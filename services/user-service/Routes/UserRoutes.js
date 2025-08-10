@@ -12,6 +12,11 @@ const {
   ForgetPassword,
   uploadAvatar,
   verifyBackupCode,
+  UpdateProfile,
+  FollowUser,
+  UnFollowUser,
+  GetFollowings,
+  GetAllFollowers,
 } = require("../Controllers/UserController");
 const Auth = require("../Middlewares/Auth");
 const { verifyOtp } = require("../Controllers/OtpController");
@@ -31,16 +36,20 @@ route.post("/social-login", SocialLogin);
 route.post("/user/forget", ForgetPassword);
 route.post("/user/security/backup-codes", Auth, generateBackupCodes);
 route.post("/security/verify-backup", Auth, verifyBackupCode);
-
+route.post("/user/follow/:id", Auth, FollowUser);
+route.post("/user/unfollow/:id", Auth, UnFollowUser);
 route.post("/user/upload-avatar", Auth, uploadAvatar);
 
 /* PATCH */
 route.patch("/user/reset", Auth, UpdatePassword);
 route.patch("/user/:id/reset/:token", ResetPassword);
+route.patch("/user/update/:id",Auth, UpdateProfile);
 
 /* GET */
 route.get("/user/profile", Auth, ViewProfile);
 route.get("/user/find/:id", FindUser);
 route.get("/user/activity/:id", getActivityLogsByUser);
+route.get("/user/followers/:id", Auth, GetAllFollowers);
+route.get("/user/followings/:id",Auth,GetFollowings);
 
 module.exports = route;

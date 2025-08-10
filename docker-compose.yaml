@@ -1,7 +1,7 @@
 version: "3.8"
 name: irlhistory
 services:
- auth-service:
+  auth-service:
     build:
       context: ./services/auth-service
       dockerfile: Dockerfile
@@ -26,7 +26,7 @@ services:
           target: /app
           action: sync
 
- user-service:
+  user-service:
     build:
       context: ./services/user-service
       dockerfile: Dockerfile
@@ -52,7 +52,60 @@ services:
           target: /app
           action: sync
 
- mongodb:
+  articles-service:
+    build:
+      context: ./services/articles-service
+      dockerfile: Dockerfile
+    container_name: articles-service
+    ports:
+      - 7000:7000
+    depends_on:
+      - mongodb
+      - redis
+    env_file:
+      - ./services/articles-service/Config/dev.env
+    networks:
+      - services-network
+    develop:
+      watch:
+        - path: ./services/articles-service/package.json
+          action: rebuild
+        - path: ./services/articles-service/package-lock.json
+          action: rebuild
+        - path: ./services/articles-service/Config/dev.env
+          action: rebuild
+        - path: ./services/articles-service
+          target: /app
+          action: sync
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: chat-service
+    ports:
+      - 8000:8000
+    depends_on:
+      - mongodb
+      - redis
+      - user-service
+    env_file:
+      - ./services/chat-service/Config/dev.env
+    networks:
+      - services-network
+    develop:
+      watch:
+        - path: ./services/chat-service/package.json
+          action: rebuild
+        - path: ./services/chat-service/package-lock.json
+          action: rebuild
+        - path: ./services/chat-service/Config/dev.env
+          action: rebuild
+        - path: ./services/chat-service
+          target: /app
+          action: sync
+
+  mongodb:
     image: mongo
     container_name: irlhistorymongo
     ports:
@@ -62,7 +115,7 @@ services:
     networks:
       - services-network
 
- redis:
+  redis:
     image: redis:latest
     container_name: redis
     ports:
@@ -71,7 +124,6 @@ services:
       - redis-data:/data
     networks:
       - services-network
-
 
 volumes:
   irlhistory-data:

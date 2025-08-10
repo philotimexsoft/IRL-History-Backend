@@ -8,7 +8,7 @@ const storage = new CloudinaryStorage({
   params: async (req, file) => {
     return {
       folder: 'webdevprimeavtars',
-      allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+      allowed_formats: ['jpg', 'png', 'jpeg'],
       transformation: [{ width: 300, height: 300, crop: 'limit' }],
       resource_type: 'image',
     };

@@ -1,0 +1,5 @@
+# Ignore node_modules directories in all services
+**/node_modules
+
+# Ignore env files in all services
+**/.env
