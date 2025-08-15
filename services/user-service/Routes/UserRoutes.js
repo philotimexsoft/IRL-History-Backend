@@ -17,6 +17,7 @@ const {
   UnFollowUser,
   GetFollowings,
   GetAllFollowers,
+  isUserNameExist,
 } = require("../Controllers/UserController");
 const Auth = require("../Middlewares/Auth");
 const { verifyOtp } = require("../Controllers/OtpController");
@@ -39,6 +40,7 @@ route.post("/security/verify-backup", Auth, verifyBackupCode);
 route.post("/user/follow/:id", Auth, FollowUser);
 route.post("/user/unfollow/:id", Auth, UnFollowUser);
 route.post("/user/upload-avatar", Auth, uploadAvatar);
+route.post("/user/uname-exist",isUserNameExist);
 
 /* PATCH */
 route.patch("/user/reset", Auth, UpdatePassword);

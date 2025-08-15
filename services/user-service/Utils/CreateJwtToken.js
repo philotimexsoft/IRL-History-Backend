@@ -6,12 +6,12 @@ const crypto = require("crypto");
 const CreateJwtToken = CatchAsyncError(async (user, status, res) => {
   const token = await user.genereteToken();
 
-  // store token in the cookie
   res.cookie("irlhistory_user", token, {
-    httpOnly: true, // ✅ Keep token hidden from JS
-    secure: false, // ✅ OK for HTTP localhost
-    sameSite: "Lax", // ✅ Works with most login flows
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    httpOnly: true,
+    secure: false, // false for localhost, true for HTTPS in production
+    sameSite: "lax", // "lax" works for Chrome dev; "none" requires secure:true
+    path: "/",
+    maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
   });
 
   if (!user.verified) {

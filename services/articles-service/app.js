@@ -13,6 +13,13 @@ const Err = require("./Middlewares/Err");
 const CookieParser = require("cookie-parser");
 const app = new express();
 
+app.use(cors({ origin: "*" }));
+app.use(cors({
+  origin: "http://localhost:3000", // your frontend
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+  credentials: true
+}));
+
 app.use(CookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

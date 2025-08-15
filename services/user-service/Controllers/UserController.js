@@ -23,6 +23,29 @@ const CreateUser = CatchAsyncError(async (req, res, next) => {
   CreateJwtToken(user, 201, res);
 });
 
+/* TO CHECK UNIQUE USERNAME */
+const isUserNameExist = CatchAsyncError(async (req, res, next) => {
+  const { uname } = req.body;
+
+  if (!uname) {
+    return next(new ErrorHandler("Please provide the uname", 400));
+  }
+
+  const isExist = await User.findOne({ uname });
+
+  if (isExist) {
+    return res.status(200).json({
+      success: true,
+      exist: true
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    exist: false
+  });
+});
+
 /* ---------------------------- SOCIAL_LOGIN & REGISTRATION ---------------------------------- */
 const SocialLogin = CatchAsyncError(async (req, res, next) => {
   const { provider, profile, youtubeUrl } = req.body;
@@ -169,7 +192,7 @@ const LoginUser = CatchAsyncError(async (req, res, next) => {
   // Handle 2FA
   if (user.twoFactorEnabled) {
     req.body._forceEmail = user.email;
-    return sendOtpToEmail(req, res);
+    return sendOtpToEmail(req, res, user);
   }
 
   await logActivity({ user, type: "login", req });
@@ -620,6 +643,7 @@ const GetFollowings = CatchAsyncError(async (req, res, next) => {
 
 module.exports = {
   CreateUser,
+  isUserNameExist,
   LoginUser,
   uploadAvatar,
   VerifyUser,

@@ -4,7 +4,7 @@ const ErrorHandler = require("../Utils/ErrorHandler");
 const UserPopulate = async (user_id) => {
   try {
     let response = await axios.get(
-      `http://user-service:6000/v1/api/user-service/user/find/${user_id}`
+      `http://user-service:9000/v1/api/user-service/user/find/${user_id}`
     );
 
     if (!response.data || !response.data.user) {

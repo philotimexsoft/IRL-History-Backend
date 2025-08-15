@@ -1,129 +1,176 @@
 version: "3.8"
 name: irlhistory
 services:
-  auth-service:
-    build:
-      context: ./services/auth-service
-      dockerfile: Dockerfile
-    container_name: auth-service
+  gateway:
+    image: nginx:alpine
+    container_name: api-gateway
     ports:
-      - 5000:5000
-    depends_on:
-      - mongodb
-    env_file:
-      - ./services/auth-service/Config/dev.env
+      - "8080:80"
     networks:
       - services-network
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - user-service
+      - auth-service
+      - articles-service
+      - chat-service
     develop:
       watch:
-        - path: ./services/auth-service/package.json
-          action: rebuild
-        - path: ./services/auth-service/package-lock.json
-          action: rebuild
-        - path: ./services/auth-service/Config/dev.env
-          action: rebuild
-        - path: ./services/auth-service
-          target: /app
-          action: sync
+        - path: ./nginx.conf
+          target: /etc/nginx/nginx.conf
+          action: sync+exec
+          exec:
+            command: nginx -s reload
+
+  # frontend:
+  #     build:
+  #       context: ./client
+  #       dockerfile: Dockerfile
+  #     container_name: frontend
+  #     ports:
+  #       - 3000:3000
+  #     env_file:
+  #       - ./client/.env.local
+  #     depends_on:
+  #       - auth-service
+  #       - user-service
+  #       - articles-service
+  #       - chat-service
+  #     develop:
+  #       watch:
+  #         - path: ./client/package.json
+  #           action: rebuild
+  #         - path: ./client/package-lock.json
+  #           action: rebuild
+  #         - path: ./client/.env.local
+  #           action: rebuild
+  #         - path: ./client
+  #           target: /app
+  #           action: sync
+  auth-service:
+      build:
+        context: ./services/auth-service
+        dockerfile: Dockerfile
+      container_name: auth-service
+      ports:
+        - 5000:5000
+      depends_on:
+        - mongodb
+      env_file:
+        - ./services/auth-service/Config/dev.env
+      networks:
+        - services-network
+      develop:
+        watch:
+          - path: ./services/auth-service/package.json
+            action: rebuild
+          - path: ./services/auth-service/package-lock.json
+            action: rebuild
+          - path: ./services/auth-service/Config/dev.env
+            action: rebuild
+          - path: ./services/auth-service
+            target: /app
+            action: sync
 
   user-service:
-    build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
-    container_name: user-service
-    ports:
-      - 6000:6000
-    depends_on:
-      - mongodb
-      - redis
-    env_file:
-      - ./services/user-service/Config/dev.env
-    networks:
-      - services-network
-    develop:
-      watch:
-        - path: ./services/user-service/package.json
-          action: rebuild
-        - path: ./services/user-service/package-lock.json
-          action: rebuild
-        - path: ./services/auth-service/Config/dev.env
-          action: rebuild
-        - path: ./services/user-service
-          target: /app
-          action: sync
+      build:
+        context: ./services/user-service
+        dockerfile: Dockerfile
+      container_name: user-service
+      ports:
+        - 9000:9000
+      depends_on:
+        - mongodb
+        - redis
+      env_file:
+        - ./services/user-service/Config/dev.env
+      networks:
+        - services-network
+      develop:
+        watch:
+          - path: ./services/user-service/package.json
+            action: rebuild
+          - path: ./services/user-service/package-lock.json
+            action: rebuild
+          - path: ./services/user-service/Config/dev.env
+            action: rebuild
+          - path: ./services/user-service
+            target: /app
+            action: sync
 
   articles-service:
-    build:
-      context: ./services/articles-service
-      dockerfile: Dockerfile
-    container_name: articles-service
-    ports:
-      - 7000:7000
-    depends_on:
-      - mongodb
-      - redis
-    env_file:
-      - ./services/articles-service/Config/dev.env
-    networks:
-      - services-network
-    develop:
-      watch:
-        - path: ./services/articles-service/package.json
-          action: rebuild
-        - path: ./services/articles-service/package-lock.json
-          action: rebuild
-        - path: ./services/articles-service/Config/dev.env
-          action: rebuild
-        - path: ./services/articles-service
-          target: /app
-          action: sync
+      build:
+        context: ./services/articles-service
+        dockerfile: Dockerfile
+      container_name: articles-service
+      ports:
+        - 7000:7000
+      depends_on:
+        - mongodb
+        - redis
+      env_file:
+        - ./services/articles-service/Config/dev.env
+      networks:
+        - services-network
+      develop:
+        watch:
+          - path: ./services/articles-service/package.json
+            action: rebuild
+          - path: ./services/articles-service/package-lock.json
+            action: rebuild
+          - path: ./services/articles-service/Config/dev.env
+            action: rebuild
+          - path: ./services/articles-service
+            target: /app
+            action: sync
 
   chat-service:
-    build:
-      context: ./services/chat-service
-      dockerfile: Dockerfile
-    container_name: chat-service
-    ports:
-      - 8000:8000
-    depends_on:
-      - mongodb
-      - redis
-      - user-service
-    env_file:
-      - ./services/chat-service/Config/dev.env
-    networks:
-      - services-network
-    develop:
-      watch:
-        - path: ./services/chat-service/package.json
-          action: rebuild
-        - path: ./services/chat-service/package-lock.json
-          action: rebuild
-        - path: ./services/chat-service/Config/dev.env
-          action: rebuild
-        - path: ./services/chat-service
-          target: /app
-          action: sync
+      build:
+        context: ./services/chat-service
+        dockerfile: Dockerfile
+      container_name: chat-service
+      ports:
+        - 8000:8000
+      depends_on:
+        - mongodb
+        - redis
+        - user-service
+      env_file:
+        - ./services/chat-service/Config/dev.env
+      networks:
+        - services-network
+      develop:
+        watch:
+          - path: ./services/chat-service/package.json
+            action: rebuild
+          - path: ./services/chat-service/package-lock.json
+            action: rebuild
+          - path: ./services/chat-service/Config/dev.env
+            action: rebuild
+          - path: ./services/chat-service
+            target: /app
+            action: sync
 
   mongodb:
-    image: mongo
-    container_name: irlhistorymongo
-    ports:
-      - 27071:27017
-    volumes:
-      - irlhistory-data:/data/db
-    networks:
-      - services-network
+      image: mongo
+      container_name: irlhistorymongo
+      ports:
+        - 27071:27017
+      volumes:
+        - irlhistory-data:/data/db
+      networks:
+        - services-network
 
   redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    networks:
-      - services-network
+      image: redis:latest
+      container_name: redis
+      ports:
+        - "6379:6379"
+      volumes:
+        - redis-data:/data
+      networks:
+        - services-network
 
 volumes:
   irlhistory-data:

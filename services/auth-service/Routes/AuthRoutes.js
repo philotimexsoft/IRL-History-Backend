@@ -3,7 +3,7 @@ const passport = require('passport');
 const axios = require('axios');
 
 const router = express.Router();
-const USER_SERVICE_BASE_URL = process.env.USER_SERVICE_BASE_URL || 'http://localhost:6000/v1/api/user-service';
+const USER_SERVICE_BASE_URL = process.env.USER_SERVICE_BASE_URL || 'http://localhost:9000/v1/api/user-service';
 
 // Helper to save user
 async function saveUser(provider, profile) {
@@ -31,41 +31,87 @@ async function saveUser(provider, profile) {
 // Google OAuth
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/google/callback', passport.authenticate('google', { session: false }), async (req, res) => {
-  try {
-    const { profile } = req.user;
-    const result = await saveUser('google', profile);
+router.get('/google/callback',
+  passport.authenticate('google', { session: false }),
+  async (req, res) => {
+    res.removeHeader("Cross-Origin-Opener-Policy");
+    try {
+      const { profile } = req.user;
+      const result = await saveUser('google', profile);
 
-    res.status(200).json({
-      success: true,
-      provider: 'google',
-      user: result.user,
-      token: result.token,
-    });
-  } catch (err) {
-    console.error("[Google Callback Error]", err.message || err);
-    res.status(500).json({ success: false, error: "Failed to login via Google" });
+      // Send result to opener window
+      res.send(`
+         <html>
+          <body>
+            <script>
+              window.opener.postMessage(
+                ${JSON.stringify({ success: true, token: result.token, user: result.user })},
+                "http://localhost:3000"
+              );
+            </script>
+            <h3>Login successful! You can close this window.</h3>
+          </body>
+        </html>
+      `);
+    } catch (err) {
+      res.send(`
+        <html>
+          <body>
+            <script>
+              window.opener.postMessage(
+                { success: false, error: "Failed to login via Google ${err}" },
+                "http://localhost:3000"
+              );
+            </script>
+            <h3>Login failed. You can close this window.</h3>
+          </body>
+        </html>
+      `);
+    }
   }
-});
+);
 
 // Discord OAuth
 router.get('/discord', passport.authenticate('discord'));
 
-router.get('/discord/callback', passport.authenticate('discord', { session: false }), async (req, res) => {
-  try {
-    const { profile } = req.user;
-    const result = await saveUser('discord', profile);
+router.get(
+  '/discord/callback',
+  passport.authenticate('discord', { session: false }),
+  async (req, res) => {
+    res.removeHeader("Cross-Origin-Opener-Policy");
+    try {
+      const { profile } = req.user;
+      const result = await saveUser('discord', profile);
 
-    res.status(200).json({
-      success: true,
-      provider: 'discord',
-      user: result.user,
-      token: result.token,
-    });
-  } catch (err) {
-    console.error("[Discord Callback Error]", err.message || err);
-    res.status(500).json({ success: false, error: "Failed to login via Discord" });
+      res.send(`
+          <html>
+          <body>
+            <script>
+              window.opener.postMessage(
+                ${JSON.stringify({ success: true, token: result.token, user: result.user })},
+                "http://localhost:3000"
+              );
+            </script>
+            <h3>Login successful! You can close this window.</h3>
+          </body>
+        </html>
+      `);
+    } catch (err) {
+      console.error("[Discord Callback Error]", err.message || err);
+      res.send(`
+         <html>
+          <body>
+            <script>
+              window.opener.postMessage(
+                { success: false, error: "Failed to login via Discrod ${err}" },
+                "http://localhost:3000"
+              );
+            </script>
+            <h3>Login failed. You can close this window.</h3>
+          </body>
+        </html>
+      `);
+    }
   }
-});
-
+);
 module.exports = router;

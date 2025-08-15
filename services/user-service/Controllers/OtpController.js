@@ -7,7 +7,7 @@ const ErrorHandler = require("../Utils/ErrorHandler"); // ✅ IMPORTANT
 const CreateJwtToken = require("../Utils/CreateJwtToken"); // ✅ Needed to login user
 
 // Send OTP to Email
-const sendOtpToEmail = CatchAsyncError(async (req, res, next) => {
+const sendOtpToEmail = CatchAsyncError(async (req, res, loginuser) => {
   const email = req.body._forceEmail || req.body.email;
   if (!email) return res.status(400).json({ success: false, message: "Email is required" });
 
@@ -33,7 +33,7 @@ const sendOtpToEmail = CatchAsyncError(async (req, res, next) => {
         console.error("Error sending template email:", err);
         return res.status(500).json({ success: false, message: "Failed to send OTP email" });
       } else {
-        return res.status(200).json({ success: true, message: "OTP sent to email" });
+        return res.status(200).json({ success: true, message: "OTP sent to email", user:loginuser});
       }
     }
   );
